@@ -1,8 +1,12 @@
 "use strict";
 
-var _greeter = _interopRequireDefault(require("./greeter.js"));
+var test = function test() {
+  var arr = [];
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+  for (var _i = 0; _i < 1; _i++) {
+    arr.push(_i);
+  }
 
-// main.js
-_greeter.default.sayHello("Daniel");
+  console.log(i);
+  console.log([].concat(arr, ['hello']));
+};
