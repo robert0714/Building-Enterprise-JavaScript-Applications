@@ -67,9 +67,19 @@ yarn add v1.13.0
 ```
 
 ### The env preset
+In fact, if you go to the npmjs.com page for @babel/preset-es2017 or similar packages, you'll see that they have been deprecated in favor of the @babel/preset-env package. Therefore, we should remove the previous plugins and presets, and use the env preset instead:
 
 ```bash
 $ yarn remove @babel/preset-es2017 @babel/plugin-syntax-object-rest-spread
 $ yarn add @babel/preset-env --dev
+.....
+```
+
+Next, replace the content of our .babelrc with the following:
+
+```bash
+{
+"presets": ["@babel/env"]
+}
 .....
 ```

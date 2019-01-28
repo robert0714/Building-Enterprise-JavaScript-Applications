@@ -1,33 +1,38 @@
 # Building-Enterprise-JavaScript-Applications
+
 Building Enterprise JavaScript Applications, published by Packt
 
 <a href="https://www.packtpub.com/web-development/building-enterprise-javascript-applications"><img src="https://www.packtpub.com/sites/default/files/cover%20-%20Copy_8514.png" alt="Book Name" height="256px" align="right"></a>
 
 This is the code repository for [Building Enterprise JavaScript Applications](https://www.packtpub.com/web-development/building-enterprise-javascript-applications), published by Packt.
 
-**Learn to build and deploy robust JavaScript applications using Cucumber, Mocha, Jenkins, Docker, and Kubernetes**
+** Learn to build and deploy robust JavaScript applications using Cucumber, Mocha, Jenkins, Docker, and Kubernetes**
+
+## About original github:
+
+https://github.com/d4nyll/hobnob
 
 ## What is this book about?
+
 With the over-abundance of tools in the JavaScript ecosystem, it's easy to feel lost. Build tools, package managers, loaders, bundlers, linters, compilers, transpilers, typecheckers - how do you make sense of it all?
 
 This book covers the following exciting features: 
+
 * Practice Test-Driven Development (TDD) throughout the entire book
 * Use Cucumber, Mocha and Selenium to write E2E, integration, unit and UI tests
 * Build stateless APIs using Express and Elasticsearch
 * Document your API using OpenAPI and Swagger
 * Build and bundle front-end applications using React, Redux and Webpack
 
-If you feel this book is for you, get your [copy](https://www.amazon.com/dp/1788477324) today!
-
-<a href="https://www.packtpub.com/?utm_source=github&utm_medium=banner&utm_campaign=GitHubBanner"><img src="https://raw.githubusercontent.com/PacktPublishing/GitHub/master/GitHub.png" 
-alt="https://www.packtpub.com/" border="5" /></a>
 
 
 ## Instructions and Navigations
+
 All of the code is organized into folders. For example, Chapter02.
 
 The code will look like the following:
-```
+
+```javascript
 function errorHandler(err, req, res, next) {
   ...
 }
