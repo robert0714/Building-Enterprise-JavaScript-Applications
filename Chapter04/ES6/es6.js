@@ -1,3 +1,7 @@
+/***
+ * @author aa
+ * 
+ */
 const test = () => {
   let arr = [];
   for(let i=0; i<1; i++) {
@@ -5,4 +9,4 @@ const test = () => {
   }
   console.log(i);
   console.log([...arr, 'hello']);
-}
+};
