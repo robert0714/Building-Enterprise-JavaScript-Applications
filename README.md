@@ -6,7 +6,7 @@ Building Enterprise JavaScript Applications, published by Packt
 
 This is the code repository for [Building Enterprise JavaScript Applications](https://www.packtpub.com/web-development/building-enterprise-javascript-applications), published by Packt.
 
-** Learn to build and deploy robust JavaScript applications using Cucumber, Mocha, Jenkins, Docker, and Kubernetes**
+**Learn to build and deploy robust JavaScript applications using Cucumber, Mocha, Jenkins, Docker, and Kubernetes**
 
 ## About original github:
 
