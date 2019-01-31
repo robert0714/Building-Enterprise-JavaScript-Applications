@@ -1,4 +1,5 @@
 # Building-Enterprise-JavaScript-Applications
+published date: 2018.09.29
 
 Building Enterprise JavaScript Applications, published by Packt
 
