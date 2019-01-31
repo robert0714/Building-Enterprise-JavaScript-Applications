@@ -9,8 +9,10 @@ This is the code repository for [Building Enterprise JavaScript Applications](ht
 **Learn to build and deploy robust JavaScript applications using Cucumber, Mocha, Jenkins, Docker, and Kubernetes**
 
 ## About original github:
-
+* server-side sample
 https://github.com/d4nyll/hobnob
+* client-side sample
+https://github.com/d4nyll/hobnob-client
 
 ## What is this book about?
 
