@@ -118,6 +118,8 @@ Then, open up the launch.json file again and add the following to the Babel Node
 
 ## Examining the req object
 
+page 142 
+
 Now, stop your API server (if you're running it), go back to src/index.js , open up the Debug panel, select one of the two configurations we just defined, and click the Start Debugging button (►). This time, you should see it succeed:
 
 
@@ -126,3 +128,10 @@ World! text; this is because our server hasn't provided a response yet! Instead,
 
 On the left-hand side, we can see a tab called VARIABLES, and here we can see all the local, closure, and global variables available at our breakpoint. When we expand the req variable, we'll find the method and url properties, which are exactly what we need:
 
+## Asserting the correct response payload
+page 146 
+
+```bash
+docker-compose up -d
+yarn run test:e2e
+```
