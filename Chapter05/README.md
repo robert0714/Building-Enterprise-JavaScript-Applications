@@ -85,7 +85,7 @@ building our application, we want it to be formatted sensibly. To do this, we ca
 {  
    "presets":[  
       [  
-         "@babel/env",
+         "@babel/preset-env",
          {  
             "targets":{  
                "node":"current"
