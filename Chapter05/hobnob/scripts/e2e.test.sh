@@ -28,7 +28,8 @@ if $SERVER_UP; then
   npx dotenv cucumberjs spec/cucumber/features -- --compiler js:@babel/register --require spec/cucumber/steps &
 
   # Waits for the next job to terminate - this should be the tests
-  wait -n
+  # wait -n
+  sleep 20s
 fi
 
 # Terminate all processes within the same process group by sending a SIGTERM signal
