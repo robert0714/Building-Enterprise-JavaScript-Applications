@@ -25,7 +25,7 @@ done
 # Only run this if API server is operational
 if $SERVER_UP; then
   # Run the test in the background
-  npx dotenv cucumberjs spec/cucumber/features -- --compiler js:babel-register --require spec/cucumber/steps &
+  npx dotenv cucumberjs spec/cucumber/features -- --compiler js:@babel/register --require spec/cucumber/steps &
 
   # Waits for the next job to terminate - this should be the tests
   wait -n
