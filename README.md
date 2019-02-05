@@ -86,7 +86,7 @@ A proponent of knowledge-sharing and open source, Daniel has written over 100 bl
 ### Suggestions and Feedback
 [Click here](https://docs.google.com/forms/d/e/1FAIpQLSdy7dATC6QmEL81FIUuymZ0Wy9vH1jHkvpY57OiMeKGqib_Ow/viewform) if you have any feedback or suggestions.
 
-##  Important Concepts in JavaScript 
+##  Chapter 19 Important Concepts in JavaScript 
 [Click here](https://www.packtpub.com/sites/default/files/downloads/ImportantConceptsinJavaScript.pdf) 
 
 Our application is going to be written in JavaScript, but there are many versions of JavaScript. These versions are formalized by Ecma International (formerly the European Computer Manufacturers Association (ECMA)), and are actually
@@ -187,6 +187,6 @@ Under the hood, when you instantiate a new primitive, a section of memory is all
 
 
 
-##  JavaScript Syntax
+## Chapter 20 JavaScript Syntax
 [Click here](https://www.packtpub.com/sites/default/files/downloads/WritinginECMAScript2015.pdf) 
 
