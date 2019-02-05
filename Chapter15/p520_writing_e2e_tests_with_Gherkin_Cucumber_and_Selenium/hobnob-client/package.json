@@ -6,7 +6,10 @@
   "scripts": {
     "build": "rm -rf dist/ &&  webpack",
     "serve": "./scripts/serve.sh",
-    "test:e2e": "./scripts/e2e.test.sh"
+    "test:e2e": "./scripts/e2e.test.sh",
+    "test:e2e:all": "yarn run test:e2e:chrome firefox",
+    "test:e2e:chrome": "./scripts/e2e.test.sh chrome",
+    "test:e2e:firefox": "./scripts/e2e.test.sh firefox"
   },
   "devDependencies": {
     "@babel/core": "^7.2.2",
