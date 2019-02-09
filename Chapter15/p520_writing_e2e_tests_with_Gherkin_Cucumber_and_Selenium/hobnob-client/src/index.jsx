@@ -50,12 +50,14 @@ class Input extends React.Component {
     render () {
         return  (<label> 
         {this.props.label} 
-        <input    onChange={this.validate}    type={this.props.type}      /> 
+        <input  id={this.props.type} type={this.props.type}  onChange={this.validate}            /> 
         <div  className="indicator" style={{height: "20px",width: "20px",backgroundColor: getIndicatorColor(this.state)}}></div>
         </label> )
     }
 }
-
+function Button(props) {
+    return <button id={props.id} disabled={props.disabled}>{props.title}</button>
+  }
 
 class  RegistrationForm   extends React.Component {
     constructor(props){
@@ -82,9 +84,9 @@ class  RegistrationForm   extends React.Component {
     render() {
         return (
         <form  onSubmit={this.handleRegistration}>
-         <Input label="Email" type="email" ref={this.email}/>
-         <Input label="Password" type="password" ref={this.password} />                 
-         <button>Register</button>
+         <Input label="Email" id="email" type="email"  ref={this.email}/>
+         <Input label="Password" id="password" type="password"   ref={this.password} />                 
+         <Button title="Register" id="register-button"   />
         </form>
         )
     }                

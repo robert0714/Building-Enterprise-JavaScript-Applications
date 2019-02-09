@@ -30,11 +30,13 @@ echo -e "\n----------SERVER_UP: $SERVER_UP  ----------"
 if $SERVER_UP; then   
     echo -e "----------- chrome test start -----------\n"
     # Run the test in the background
-    npx dotenv cucumber-js spec/cucumber/features   --compiler js:@babel/register --require spec/cucumber/steps
+    # npx dotenv cucumber-js   --compiler js:babel-register  spec/cucumber/features --require spec/cucumber/steps 
+    
+    npx dotenv cucumberjs spec/cucumber/features -- --compiler js:@babel/register --require spec/cucumber/steps
     # Waits for the next job to terminate - this should be the tests
     #wait 
     echo -e "----------- chrome test end -----------\n"
-    sleep 5s
+    sleep 10s
 else
   >&2 echo "Web server failed to start"
 fi
