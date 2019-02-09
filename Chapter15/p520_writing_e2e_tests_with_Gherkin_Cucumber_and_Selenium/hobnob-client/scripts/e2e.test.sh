@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set environment variables from .env and set NODE_ENV to test
-source <(dotenv-export | sed 's/\\n/\n/g')
+source <(npx dotenv-export | sed 's/\\n/\n/g')
 export NODE_ENV=test
 
 # Run our web server as a background process
@@ -12,6 +12,8 @@ TRIES=0
 RETRY_LIMIT=50
 RETRY_INTERVAL=0.2
 SERVER_UP=false
+echo -e "\n----------RETRY_LIMIT: $RETRY_LIMIT  ----------"
+echo -e "\n----------WEB_SERVER_PORT_TEST: $WEB_SERVER_PORT_TEST  ----------"
 while [ $TRIES -lt $RETRY_LIMIT ]; do
   if netstat -tulpn 2>/dev/null | grep -q ":$WEB_SERVER_PORT_TEST.*LISTEN"; then
     SERVER_UP=true
@@ -23,17 +25,16 @@ while [ $TRIES -lt $RETRY_LIMIT ]; do
 done
 
 # Only run this if API server is operational
-if $SERVER_UP; then
-  for browser in "$@"; do 
-    export TEST_BROWSER="$browser"
-    echo -e "\n---------- $TEST_BROWSER test start ----------"
+echo -e "\n----------SERVER_UP: $SERVER_UP  ----------"
+
+if $SERVER_UP; then   
+    echo -e "----------- chrome test start -----------\n"
     # Run the test in the background
-    npx dotenv cucumber-js spec/cucumber/features -- --compiler js:@babel/register --require spec/cucumber/steps &
-   
+    npx dotenv cucumber-js spec/cucumber/features   --compiler js:@babel/register --require spec/cucumber/steps
     # Waits for the next job to terminate - this should be the tests
     #wait 
-    echo -e "----------- $TEST_BROWSER test end -----------\n"
-  done
+    echo -e "----------- chrome test end -----------\n"
+    sleep 5s
 else
   >&2 echo "Web server failed to start"
 fi

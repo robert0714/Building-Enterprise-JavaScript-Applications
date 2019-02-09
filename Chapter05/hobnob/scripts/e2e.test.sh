@@ -29,7 +29,7 @@ if $SERVER_UP; then
 
   # Waits for the next job to terminate - this should be the tests
   # wait -n
-  sleep 5s
+  sleep 1s
 fi
 
 # Terminate all processes within the same process group by sending a SIGTERM signal
