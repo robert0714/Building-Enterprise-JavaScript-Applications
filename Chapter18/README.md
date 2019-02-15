@@ -134,6 +134,8 @@ Now, create a new directory structure at manifests/elasticsearch , and in it, cr
 
 ```yaml
 
+# deployment.yaml
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
