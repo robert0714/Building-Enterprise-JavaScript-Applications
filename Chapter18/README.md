@@ -41,6 +41,19 @@ NAME READY STATUS RESTARTS AGE
 elasticsearch-656d7c98c6-s6v58 1/1 Running 0 1m
 
 ```
+or it crahed
+
+```bash
+$ kubectl logs elasticsearch-656d7c98c6-s6v58 
+ERROR: [1] bootstrap checks failed
+[1]: max virtual memory areas vm.max_map_count [65530] is too low, increase to at least [262144]
+[2019-02-15T05:48:13,176][INFO ][o.e.n.Node               ] [PDuL9Ta] stopping ...
+[2019-02-15T05:48:13,193][INFO ][o.e.n.Node               ] [PDuL9Ta] stopped
+[2019-02-15T05:48:13,193][INFO ][o.e.n.Node               ] [PDuL9Ta] closing ...
+[2019-02-15T05:48:13,205][INFO ][o.e.n.Node               ] [PDuL9Ta] closed
+
+$ sudo sysctl -w vm.max_map_count=262144
+```
 
 ## Understanding high-level Kubernetes objects
 
@@ -120,6 +133,8 @@ No resources found.
 Now, create a new directory structure at manifests/elasticsearch , and in it, create a new file called deployment.yaml . Then, add the following Deployment configuration:
 
 ```yaml
+
+# deployment.yaml
 
 apiVersion: apps/v1
 kind: Deployment
