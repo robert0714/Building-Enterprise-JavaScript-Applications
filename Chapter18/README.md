@@ -297,10 +297,10 @@ Using the same logic, you can run kubectl get pods to see a list of Pods:
 
 $ kubectl get pods --show-labels
 
-NAME                           READY STATUS     LABELS
-elasticsearch-699c7dd54f-n5tmq 1/1   Running    app=elasticsearch,pod-template-hash=2557388109
-elasticsearch-699c7dd54f-pft9k 1/1   Running    app=elasticsearch,pod-template-hash=2557388109
-elasticsearch-699c7dd54f-pm2wz 1/1   Running    app=elasticsearch,pod-template-hash=2557388109
+NAME                             READY   STATUS    RESTARTS   AGE     LABELS
+elasticsearch-7f98d7c4d6-5t5dd   1/1     Running   0          5m19s   app=elasticsearch,pod-template-hash=7f98d7c4d6
+elasticsearch-7f98d7c4d6-cj2q7   1/1     Running   0          5m19s   app=elasticsearch,pod-template-hash=7f98d7c4d6
+elasticsearch-7f98d7c4d6-tb94k   1/1     Running   0          5m19s   app=elasticsearch,pod-template-hash=7f98d7c4d6
 
 ```
 
@@ -315,6 +315,514 @@ describe pods <pod-name> , which will produce a human-friendly output:
 
 ```bash
 
+$ kubectl describe pods elasticsearch-7f98d7c4d6-5t5dd 
+
+Name:               elasticsearch-7f98d7c4d6-5t5dd
+Namespace:          default
+Priority:           0
+PriorityClassName:  <none>
+Node:               minikube/192.168.57.11
+Start Time:         Fri, 15 Feb 2019 16:32:02 +0800
+Labels:             app=elasticsearch
+                    pod-template-hash=7f98d7c4d6
+Annotations:        <none>
+Status:             Running
+IP:                 172.17.0.17
+Controlled By:      ReplicaSet/elasticsearch-7f98d7c4d6
+Containers:
+  elasticsearch:
+    Container ID:   docker://e632c8ccac133d52641d3447fb39e694cc34cddee46b2f6514b21fa2c5422cc9
+    Image:          docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.2
+    Image ID:       docker-pullable://docker.elastic.co/elasticsearch/elasticsearch-oss@sha256:8ab8291e47460c686529dcbc1efedeb48bf983765cb93cbb4a55337f4ec256f4
+    Ports:          9200/TCP, 9300/TCP
+    Host Ports:     0/TCP, 0/TCP
+    State:          Running
+      Started:      Fri, 15 Feb 2019 16:32:11 +0800
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-gzvzm (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  default-token-gzvzm:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-gzvzm
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type    Reason     Age    From               Message
+  ----    ------     ----   ----               -------
+  Normal  Scheduled  7m45s  default-scheduler  Successfully assigned default/elasticsearch-7f98d7c4d6-5t5dd to minikube
+  Normal  Pulled     7m39s  kubelet, minikube  Container image "docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.2" already present on machine
+  Normal  Created    7m36s  kubelet, minikube  Created container
+  Normal  Started    7m36s  kubelet, minikube  Started container
+
+```
+
+Alternatively, you can get information about a Pod in a more structured JSON format by running kubectl get pod <pod-name> .
+
+
+## Configuring Elasticsearch cluster
+
+From the output of kubectl describe pods (or kubectl get pod ), we can see that the IP address of the Pod named elasticsearch-699c7dd54f-n5tmq is listed as 172.17.0.5 . Since our machine is the node that this Pod runs on, we can access the Pod using this private IP address.
+
+The Elasticsearch API should be listening to port 9200 . Therefore, if we make a GET request to http://172.17.0.5:9200/ , we should expect Elasticsearch to reply with a JSON object:
+
+```bash
+
+$ curl http://172.17.0.5:9200/
+{
+  "name" : "CKaMZGV",
+  "cluster_name" : "docker-cluster",
+  "cluster_uuid" : "dCAcFnvOQFuU8pTgw4utwQ",
+  "version" : {
+     "number" : "6.3.2",
+     "lucene_version" : "7.3.1"
+     ...
+  },
+  "tagline" : "You Know, for Search"
+}
+
+```
+We can do the same for Pods elasticsearch-699c7dd54f-pft9k and elasticsearch-699c7dd54f-pm2wz , which have the IPs 172.17.0.4 and 172.17.0.6 , respectively:
+
+```bash
+
+$ kubectl get pods -l app=elasticsearch -o=custom-columns=NAME:.metadata.name,IP:.status.podIP
+
+NAME IP
+elasticsearch-699c7dd54f-pft9k 172.17.0.4
+elasticsearch-699c7dd54f-n5tmq 172.17.0.5
+elasticsearch-699c7dd54f-pm2wz 172.17.0.6
+
+$ curl http://172.17.0.4:9200/
+{
+  "name" : "TscXyKK",
+  "cluster_name" : "docker-cluster",
+  "cluster_uuid" : "zhz6Ok_aQiKfqYpzsgp7lQ",
+  ...
+}
+
+$ curl http://172.17.0.6:9200/
+{
+  "name" : "_nH26kt",
+  "cluster_name" : "docker-cluster",
+  "cluster_uuid" : "TioZ4wz4TeGyflOyu1Xa-A",
+  ...
+}
+
+```
+
+Although these Elasticsearch instances are deployed inside the same Kubernetes cluster, they are each inside their own Elasticsearch cluster (there are currently three Elasticsearch clusters, running independently from each other). We know this because the value of cluster_uuid for the different Elasticsearch instances are all different.
+
+However, we want our Elasticsearch nodes to be able to communicate with each other, so that data written to one instance will be propagated to, and accessible from, other instances.
+
+Let's confirm that this is not the case with our current setup. First, we will index a simple document:
+
+```bash
+
+$ curl "172.17.0.6:9200/test/doc/1"
+{"_index":"test","_type":"doc","_id":"1","_version":1,"found":true,"_source":{"foo":"bar"}}
+
+$ curl "172.17.0.5:9200/test/doc/1"
+{"error":{"type":"index_not_found_exception","reason":"no such index","index":"test"},"status":404}
+
+$ curl "172.17.0.4:9200/test/doc/1"
+{"error":{"type":"index_not_found_exception","reason":"no such index","index":"test"},"status":404}
 
 
 ```
+
+Before we continue, it's important to make the distinction between an Elasticsearch cluster and a Kubernetes cluster. Elasticsearch is a distributed data storage solution, where all data is distributed among one or more shards, deployed among one or more nodes. An Elasticsearch cluster can be deployed on any machines, and is completely unrelated to a Kubernetes cluster. However, because we are deploying a distributed Elasticsearch services on Kubernetes, the Elasticsearch cluster now resides within the Kubernetes cluster.
+
+## Networking for distributed databases
+
+Due to the ephemeral nature of Pods, the IP addresses for Pods running a particular service (such as Elasticsearch) may change. For instance, the scheduler may kill Pods running on a busy node, and redeploy it on a more available node.
+
+This poses a problem for our Elasticsearch deployment because:
+* An Elasticsearch instance running on one Pod would not know the IP addresses of other instances running on other Pods
+* Even if an instance obtains a list of IP addresses of other instances, this list will quickly become obsolete
+
+This means that Elasticsearch nodes cannot discover each other (this process is called Node Discovery), and is the reason why changes applied to one Elasticsearch node is not propagated to the others.
+
+To resolve this issue, we must understand how Node Discovery works in Elasticsearch, and then figure out how we can configure Kubernetes to enable discovery for Elasticsearch.
+
+## Configuring Elasticsearch's Zen discovery
+
+Elasticsearch provides a discovery module, called Zen Discovery, that allows different  Elasticsearch nodes to find each other.
+
+By default, Zen Discovery achieves this by pinging ports 9300 to 9305 on each loopback address ( 127.0.0.0/16 ), and tries to find Elasticsearch instances that respond to the ping. This default behavior provides auto-discovery for all Elasticsearch nodes running on the same machine.
+
+However, if the nodes reside on different machines, they won't be available on the loopback addresses. Instead, they will have IP addresses that are private to their network. For Zen Discovery to work here, we must provide a seed list of hostnames and/or IP addresses that other Elasticsearch nodes are running on.
+
+This list can be specified under the discovery.zen.ping.unicast.hosts property inside Elasticsearch's configuration file elasticsearch.yaml . But this is difficult because:
+
+* The Pod IP address that these Elasticsearch nodes will be running on is very likely to change
+* Every time the IP changes, we'd have to go inside each container and update elasticsearch.yaml
+
+Fortunately, Elasticsearch allows us to specify this setting as an environment variable.
+Therefore, we can modify our deployment.yaml and add an env property under spec.template.spec.containers :
+
+```yaml
+
+containers:
+- name: elasticsearch
+  image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.2
+  ports:
+  - containerPort: 9200
+  - containerPort: 9300
+  env:
+  - name: discovery.zen.ping.unicast.hosts
+    value: ""
+
+```
+
+## Attaching hostnames to Pods
+
+But what should the value of this environment variable be? Currently, the IP addresses of the Elasticsearch Pods is random (within a large range) and may change at any time.
+
+To resolve this issue, we need to give each Pod a unique hostname that sticks to the Pod, even if it gets rescheduled.
+
+When you visit a website, you usually won't type the site's IP address directly onto the browser; instead, you'd use the website's domain name. Even if the host of the website changes to a different IP address, the website will still be reachable on the same domain name. This is similar to what happens when we attach a hostname to a Pod.
+
+To achieve this, we need to do two things:
+1. Provide each Pod with an identity using another Kubernetes Object called StatefulSet.
+1. Attach a DNS subdomain to each Pod using a Headless Service, where the value of the subdomain is based on the Pod's identity.
+
+## Working with StatefulSets
+
+So far, we've been using the Deployment object to deploy our Elasticsearch service.The Deployment Controller will manage the ReplicaSets and Pods under its control and ensure that the correct numbers are running and healthy.
+
+However, a Deployment assumes that each instance is stateless and works independently from each other. More importantly, it assumes that instances are fungible—that one instance is interchangeable with any other. Pods managed by a Deployment have identical identities.
+
+This is not the case for Elasticsearch, or other distributed databases, which must hold stateful information that distinguishes one Elasticsearch node from another. These Elasticsearch nodes need individual identities so that they can communicate with each other to ensure data is consistent across the cluster.
+
+Kubernetes provides another API Object called StatefulSet. Like the Deployment object, StatefulSet manages the running and scaling of Pods, but it also guarantees the ordering and uniqueness of each Pod. Pods managed by a StatefulSet have individual identities.
+
+StatefulSets are similar to Deployments in terms of definition, so we only need to make minimal changes to our manifests/elasticsearch/deployment.yaml . 
+
+First, change the filename to stateful-set.yaml , and then change the kind property to StatefulSet:
+
+```properties
+
+kind: StatefulSet
+
+```
+
+Now, all the Pods within the StatefulSet can be identified with a name. The name is composed of the name of the StatefulSet, as well as the ordinal index of the Pod:
+
+```properties
+
+<statefulset-name>-<ordinal>
+
+```
+
+## Ordinal index
+
+The ordinal index, also known as ordinal number in set theory, is simply a set of numbers that are used to order a collection of objects, one after the other. Here, Kubernetes is using them to order, as well as identify each Pod. You can think of it akin to an auto-incrementing index in a SQL column.
+
+The "first" Pod in the StatefulSet has an ordinal number of 0 , the "second" Pod has the ordinal number of 1 , and so on.
+
+Our StatefulSet is named elasticsearch and we indicated 3 replicas, so our Pods will now be named elasticsearch-0 , elasticsearch-1 , and elasticsearch-2 .
+
+Most importantly, a Pod's cardinal index, and thus its identity, is sticky—if the Pod gets rescheduled onto another Node, it will keep this same ordinal and identity.
+
+## Working with services
+
+By using a StatefulSet, each Pod can now be uniquely identified. However, the IP of each Pod is still randomly assigned; we want our Pods to be accessible from a stable IP address. Kubernetes provides the Service Object to achieve this.
+
+The Service Object is very versatile, in that it can be used in many ways. Generally, it is used to provide an IP address to Kuberentes Objects like Pods.
+
+The most common use case for a Service Object is to provide a single, stable, 
+externally-accessible Cluster IP (also known as the Service IP) for a distributed service.
+When a request is made to this Cluster IP, the request will be proxied to one of the Pods running the service. In this use case, the Service Object is acting as a load balancer.
+
+However, that's not what we need for our Elasticsearch service. Instead of having a single cluster IP for the entire service, we want each Pod to have its own stable subdomain so that each Elasticsearch node can perform Node Discovery.
+
+For this use case, we want to use a special type of Service Object called Headless Service. As with other Kubernetes Objects, we can define a Headless Service using a manifest file. Create a new file at manifests/elasticsearch/service.yaml with the following content:
+
+```yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  spec:
+    selector:
+      app: elasticsearch
+  clusterIP: None
+  ports:
+  - port: 9200
+    name: rest
+  - port: 9300
+    name: transport
+
+```
+
+Let's go through what some of the fields mean:
+
+* metadata.name : Like other Kuberentes Objects, having a name allows us to identify the Service by name and not ID.
+* spec.selector : This specifies the Pods that should be managed by the Service Controller. Specifically for Services, this defines the selector to select all the Pods that constitute a service.
+* spec.clusterIP : This specifies the Cluster IP for the Service. Here, we set
+it to None to indicate that we want a Headless Service.
+* spec.ports : A mapping of how requests are mapped from a port to the
+container's port.
+
+Let's deploy this Service into our Kubernetes cluster:
+We don't need to actually run the Pods before we define a Service. A Service will frequently evaluate its selector to find new Pods that satisfy the selector.
+
+```bash
+
+$ kubectl apply -f manifests/elasticsearch/service.yaml
+service "elasticsearch" created
+
+```
+
+We can run kubectl get service to see a list of running services:
+
+```bash
+
+$ kubectl get services
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   3h38m
+
+
+```
+
+## Linking StatefulSet to a service
+
+First, let's remove our existing elasticsearch Deployment Object:
+
+```bash
+
+$ kubectl delete deployment elasticsearch
+
+```
+
+Now, the final step is to create our StatefulSet, which provides each Pod with a unique identity, and link it to the Service, which gives each Pod a subdomain. We do this by specifying the name of the Service as the spec.serviceName property in our StatefulSet manifest file:
+
+```properties
+
+...
+spec:
+  replicas: 3
+  serviceName: elasticsearch
+  ...
+
+```
+
+Now, the Service linked to the StatefulSet will get a domain with the following structure:
+
+```
+<service-name>.<namespace>.svc.<cluster-domain>
+```
+
+Our Service's name is elasticsearch . By default, Kubernetes will use the default namespace, and cluster.local as the Cluster Domain. Therefore, the Service Domain for our Headless Service
+is elasticsearch.default.svc.cluster.local .
+
+Each Pod within the Headless Service will have its own subdomain, which has the following structure:
+
+```
+
+<pod-name>.<service-domain>
+
+```
+
+Or if we expand this out:
+
+```xml
+
+<statefulset-name>-<ordinal>.<service-name>.<namespace>.svc.<cluster-domain>
+
+```
+
+Therefore, our three replicas would have the subdomains:
+
+```preoperties
+
+elasticsearch-0.elasticsearch.default.svc.cluster.local
+elasticsearch-1.elasticsearch.default.svc.cluster.local
+elasticsearch-2.elasticsearch.default.svc.cluster.local
+
+```
+
+## Updating Zen Discovery configuration
+
+We can now combine these subdomains into a comma-separated list, and use it as the value for the discovery.zen.ping.unicast.hosts environment variable we are passing into the Elasticsearch containers. Update the manifests/elasticsearch/stateful-set.yaml file to read the following:
+
+```yaml 
+## manifests/elasticsearch/stateful-set.yaml
+
+env:
+- name: discovery.zen.ping.unicast.hosts
+  value: "elasticsearch-0.elasticsearch.default.svc.cluster.local,elasticsearch-1.elasticsearch.default.svc.cluster.local,elasticsearch-2.elasticsearch.default.svc.cluster.local"
+
+```
+
+The final stateful-set.yaml should read as follows:
+
+```yaml
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  replicas: 3
+  serviceName: elasticsearch
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      name: elasticsearch
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.2
+          ports:
+            - containerPort: 9200
+            - containerPort: 9300
+          env:
+            - name: discovery.zen.ping.unicast.hosts
+              value:
+                "elasticsearch-0.elasticsearch.default.svc.cluster.local,elasticsearch-1.elasticsearch.default.svc.cluster.local,elasticsearch-2.elasticsearch.default.svc.cluster.local"
+
+```
+
+Now, we can add this StatefulSet to our cluster by running kubectl apply :
+
+```bash
+
+$ kubectl apply -f manifests/elasticsearch/stateful-set.yaml
+
+statefulset.apps "elasticsearch" created
+
+```
+
+We can check that the StatefulSet is deployed by running kubectl get statefulset :
+
+```bash
+
+$ kubectl get statefulsets
+
+NAME              DESIRED CURRENT  AGE
+elasticsearchh    3       3        42s
+
+```
+
+We should also check that the Pods are deployed and running:
+
+```bash
+
+$ kubectl get pods
+NAME                             READY   STATUS    RESTARTS   AGE
+elasticsearch-7f98d7c4d6-5t5dd   1/1     Running   0          85m
+elasticsearch-7f98d7c4d6-cj2q7   1/1     Running   0          85m
+elasticsearch-7f98d7c4d6-tb94k   1/1     Running   0          85m
+
+
+```
+
+Note how each Pod now has a name with the structure <statefulset-name>-<ordinal> .
+
+Now, let's curl port 9200 of each Pod and see if the Elasticsearch Nodes have discovered each other and have collectively formed a single cluster. We will be using the -o flag of kubectl get pods to extract the IP address of each Pod. The -o flag allows you to specify custom formats for your output. For example, you can get a table of Pod names and IPs:
+
+```bash
+$ kubectl get pods -l app=elasticsearch -o=custom-columns=NAME:.metadata.name,IP:.status.podIP
+
+NAME                             IP
+elasticsearch-7f98d7c4d6-5t5dd   172.17.0.17
+elasticsearch-7f98d7c4d6-cj2q7   172.17.0.16
+elasticsearch-7f98d7c4d6-tb94k   172.17.0.18
+
+```
+
+We will run the following command to get the Cluster ID of the Elasticsearch node running on Pod elasticsearch-0 :
+
+```bash
+$ curl -s $(kubectl get pod elasticsearch-7f98d7c4d6-5t5dd -o=jsonpath='{.status.podIP}'):9200 | jq -r '.cluster_uuid'
+
+pKtisDjpS1O27YrRlBAQWg
+
+
+```
+
+kubectl get pod elasticsearch-0 -o=jsonpath='{.status.podIP}' returns the IP address of the Pod. This is then used to curl the port 9200 of this IP; the -s flag silences the progress information
+that cURL normally prints to stdout . Lastly, the JSON returned from Elasticsearch is parsed by the jq tool which extracts the cluster_uuid field from the JSON object.
+
+The end result gives a Elasticsearch Cluster ID of pKtisDjpS1O27YrRlBAQWg . Repeat the same step for the other Pods to confirm that they've successfully performed Node Discovery and are part of the same Elasticsearch Cluster:
+
+```bash
+
+$ curl -s $(kubectl get pod elasticsearch-7f98d7c4d6-cj2q7 -o=jsonpath='{.status.podIP}'):9200 | jq -r '.cluster_uuid'
+
+b8mjw3bhSIqRvzZsruacaA
+
+
+$ curl -s $(kubectl get pod elasticsearch-7f98d7c4d6-tb94k -o=jsonpath='{.status.podIP}'):9200 | jq -r '.cluster_uuid'
+
+W3-rPLxTRw2IhDnetdHn4w
+
+```
+
+Perfect! Another way to confirm this is to send a GET /cluster/state request to any one of the Elasticsearch nodes:
+
+```bash
+
+$ curl "$(kubectl get pod elasticsearch-7f98d7c4d6-tb94k -o=jsonpath='{.status.podIP}'):9200/_cluster/state/master_node,nodes/?pretty"
+
+{
+  "cluster_name" : "docker-cluster",
+  "compressed_size_in_bytes" : 228,
+  "master_node" : "ASMCWh45S723qWqNWLRhUw",
+  "nodes" : {
+    "ASMCWh45S723qWqNWLRhUw" : {
+      "name" : "ASMCWh4",
+      "ephemeral_id" : "FlFq0VTRRb6j1zHEnSCrCQ",
+      "transport_address" : "172.17.0.18:9300",
+      "attributes" : { }
+    }
+  }
+}
+
+```
+
+## Validating Zen Discovery
+
+Once all ES nodes have been discovered, most API operations are propagated from one ES node to another in a peer-to-peer manner. To test this, let's repeat what we did previously and add a document to one Elasticsearch node and test whether you can access this newly indexed document from a different Elasticsearch node.
+
+First, let's index a new document on the Elasticsearch node running inside the elasticsearch-0 Pod:
+
+```bash
+
+$ curl -X PUT "$(kubectl get pod  elasticsearch-7f98d7c4d6-5t5dd -o=jsonpath='{.status.podIP}'):9200/test/doc/1" -H 'Content-Type:application/json' -d '{"foo":"bar"}'
+
+{"_index":"test","_type":"doc","_id":"1","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}
+
+```
+
+Now, let's try to retrieve this document from another Elasticsearch node (for example,the one running inside Pod elasticsearch-1 ):
+
+```bash
+
+$ curl -X PUT "$(kubectl get pod  elasticsearch-7f98d7c4d6-cj2q7  -o=jsonpath='{.status.podIP}'):9200/test/doc/1" {"_index":"test","_type":"doc","_id":"1","_version":1,"found":true,"_source":{"foo":"bar"}}
+
+
+```
+
+Try repeating the same command for elasticsearch-0 and elasticsearch-2 and confirm that you get the same result.
+
+Amazing! We've now successfully deployed our Elasticsearch service in a distributed manner inside our Kubernetes cluster!
+
