@@ -606,9 +606,11 @@ We can run kubectl get service to see a list of running services:
 
 ```bash
 
-$ kubectl get services
-NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   3h38m
+$  kubectl get services
+NAME            TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)             AGE
+elasticsearch   ClusterIP   None         <none>        9200/TCP,9300/TCP   23s
+kubernetes      ClusterIP   10.96.0.1    <none>        443/TCP             2d2h
+
 
 
 ```
@@ -742,34 +744,34 @@ We should also check that the Pods are deployed and running:
 ```bash
 
 $ kubectl get pods
-NAME                             READY   STATUS    RESTARTS   AGE
-elasticsearch-7f98d7c4d6-5t5dd   1/1     Running   0          85m
-elasticsearch-7f98d7c4d6-cj2q7   1/1     Running   0          85m
-elasticsearch-7f98d7c4d6-tb94k   1/1     Running   0          85m
+NAME              READY   STATUS    RESTARTS   AGE
+elasticsearch-0   1/1     Running   0          20s
+elasticsearch-1   1/1     Running   0          15s
+elasticsearch-2   1/1     Running   0          10s
 
 
 ```
 
-Note how each Pod now has a name with the structure <statefulset-name>-<ordinal> .
+Note how each Pod now has a name with the structure ```<statefulset-name>-<ordinal> ```.
 
 Now, let's curl port 9200 of each Pod and see if the Elasticsearch Nodes have discovered each other and have collectively formed a single cluster. We will be using the -o flag of kubectl get pods to extract the IP address of each Pod. The -o flag allows you to specify custom formats for your output. For example, you can get a table of Pod names and IPs:
 
 ```bash
 $ kubectl get pods -l app=elasticsearch -o=custom-columns=NAME:.metadata.name,IP:.status.podIP
 
-NAME                             IP
-elasticsearch-7f98d7c4d6-5t5dd   172.17.0.17
-elasticsearch-7f98d7c4d6-cj2q7   172.17.0.16
-elasticsearch-7f98d7c4d6-tb94k   172.17.0.18
+NAME              IP
+elasticsearch-0   172.17.0.16
+elasticsearch-1   172.17.0.17
+elasticsearch-2   172.17.0.18
 
 ```
 
 We will run the following command to get the Cluster ID of the Elasticsearch node running on Pod elasticsearch-0 :
 
 ```bash
-$ curl -s $(kubectl get pod elasticsearch-7f98d7c4d6-5t5dd -o=jsonpath='{.status.podIP}'):9200 | jq -r '.cluster_uuid'
+$ curl -s $(kubectl get pod elasticsearch-0 -o=jsonpath='{.status.podIP}'):9200 | jq -r '.cluster_uuid'
 
-pKtisDjpS1O27YrRlBAQWg
+z8n4vOWMTQycKxU4fd2AZg
 
 
 ```
@@ -781,14 +783,14 @@ The end result gives a Elasticsearch Cluster ID of pKtisDjpS1O27YrRlBAQWg . Repe
 
 ```bash
 
-$ curl -s $(kubectl get pod elasticsearch-7f98d7c4d6-cj2q7 -o=jsonpath='{.status.podIP}'):9200 | jq -r '.cluster_uuid'
+$ curl -s $(kubectl get pod elasticsearch-1 -o=jsonpath='{.status.podIP}'):9200 | jq -r '.cluster_uuid'
 
-b8mjw3bhSIqRvzZsruacaA
+XGW-StSmRKeUvbWTUBm6QQ
 
 
-$ curl -s $(kubectl get pod elasticsearch-7f98d7c4d6-tb94k -o=jsonpath='{.status.podIP}'):9200 | jq -r '.cluster_uuid'
+$ curl -s $(kubectl get pod elasticsearch-2 -o=jsonpath='{.status.podIP}'):9200 | jq -r '.cluster_uuid'
 
-W3-rPLxTRw2IhDnetdHn4w
+-eeMnD5RQA2_1Tc1Ax5nUQ
 
 ```
 
@@ -796,21 +798,22 @@ Perfect! Another way to confirm this is to send a GET /cluster/state request to 
 
 ```bash
 
-$ curl "$(kubectl get pod elasticsearch-7f98d7c4d6-tb94k -o=jsonpath='{.status.podIP}'):9200/_cluster/state/master_node,nodes/?pretty"
+$ curl "$(kubectl get pod elasticsearch-2 -o=jsonpath='{.status.podIP}'):9200/_cluster/state/master_node,nodes/?pretty"
 
 {
   "cluster_name" : "docker-cluster",
-  "compressed_size_in_bytes" : 228,
-  "master_node" : "ASMCWh45S723qWqNWLRhUw",
+  "compressed_size_in_bytes" : 227,
+  "master_node" : "wzj-uF0sQoKjj_roZD7ipw",
   "nodes" : {
-    "ASMCWh45S723qWqNWLRhUw" : {
-      "name" : "ASMCWh4",
-      "ephemeral_id" : "FlFq0VTRRb6j1zHEnSCrCQ",
+    "wzj-uF0sQoKjj_roZD7ipw" : {
+      "name" : "wzj-uF0",
+      "ephemeral_id" : "_kR5Oz6yRJGoOtY2xMyRwg",
       "transport_address" : "172.17.0.18:9300",
       "attributes" : { }
     }
   }
 }
+
 
 ```
 
@@ -822,7 +825,7 @@ First, let's index a new document on the Elasticsearch node running inside the e
 
 ```bash
 
-$ curl -X PUT "$(kubectl get pod  elasticsearch-7f98d7c4d6-5t5dd -o=jsonpath='{.status.podIP}'):9200/test/doc/1" -H 'Content-Type:application/json' -d '{"foo":"bar"}'
+$ curl -X PUT "$(kubectl get pod  elasticsearch-0 -o=jsonpath='{.status.podIP}'):9200/test/doc/1" -H 'Content-Type:application/json' -d '{"foo":"bar"}'
 
 {"_index":"test","_type":"doc","_id":"1","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1}
 
@@ -832,7 +835,7 @@ Now, let's try to retrieve this document from another Elasticsearch node (for ex
 
 ```bash
 
-$ curl -X PUT "$(kubectl get pod  elasticsearch-7f98d7c4d6-cj2q7  -o=jsonpath='{.status.podIP}'):9200/test/doc/1" {"_index":"test","_type":"doc","_id":"1","_version":1,"found":true,"_source":{"foo":"bar"}}
+$ curl -X PUT "$(kubectl get pod  elasticsearch-1  -o=jsonpath='{.status.podIP}'):9200/test/doc/1" {"_index":"test","_type":"doc","_id":"1","_version":1,"found":true,"_source":{"foo":"bar"}}
 
 
 ```
@@ -841,3 +844,58 @@ Try repeating the same command for elasticsearch-0 and elasticsearch-2 and confi
 
 Amazing! We've now successfully deployed our Elasticsearch service in a distributed manner inside our Kubernetes cluster!
 
+## Running commands on multiple servers
+
+
+### Using init containers
+
+ps. kubectl get all / kubectl delete statefullsets elasticsearch
+```yaml
+## statefull-set.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  replicas: 3
+  serviceName: elasticsearch
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      name: elasticsearch
+      labels:
+        app: elasticsearch
+    spec:
+      initContainers:
+      - name: increase-max-map-count
+        image: busybox
+        command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        securityContext:
+          privileged: true
+      - name: increase-file-descriptor-limit
+        image: busybox
+        command:
+        - sh
+        - -c
+        - ulimit -n 65536
+        securityContext:
+          privileged: true
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.2
+        ports:
+        - containerPort: 9200
+        - containerPort: 9300
+        env:
+        - name: discovery.zen.ping.unicast.hosts
+          value: "elasticsearch-0.elasticsearch.default.svc.cluster.local,elasticsearch-1.elasticsearch.default.svc.cluster.local,elasticsearch-2.elasticsearch.default.svc.cluster.local"
+
+
+
+
+```
