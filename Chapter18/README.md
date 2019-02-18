@@ -679,6 +679,7 @@ elasticsearch-1.elasticsearch.default.svc.cluster.local
 elasticsearch-2.elasticsearch.default.svc.cluster.local
 
 ```
+https://www.ibm.com/support/knowledgecenter/zh/SSFPJS_8.5.6/com.ibm.wbpm.main.doc/topics/rfps_esearch_configoptions.html
 
 ## Updating Zen Discovery configuration
 
