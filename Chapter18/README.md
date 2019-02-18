@@ -616,6 +616,8 @@ kubernetes      ClusterIP   10.96.0.1    <none>        443/TCP             2d2h
 ```
 ### Validation attatching a DNS subdomain to each pod
 
+https://kubernetes.io/zh/docs/concepts/services-networking/dns-pod-service/#%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5%E6%8A%80%E5%B7%A7
+
 https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 
 https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
