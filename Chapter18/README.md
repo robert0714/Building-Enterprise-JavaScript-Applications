@@ -825,6 +825,64 @@ $ curl "$(kubectl get pod elasticsearch-2 -o=jsonpath='{.status.podIP}'):9200/_c
 
 ```
 
+what happened ?
+
+```bash
+
+$ kubectl get pods --namespace=kube-system -l k8s-app=kube-dns
+NAME                       READY   STATUS             RESTARTS   AGE
+coredns-86c58d9df4-4gwjj   0/1     CrashLoopBackOff   2          44s
+coredns-86c58d9df4-9bfkr   0/1     CrashLoopBackOff   2          44s
+
+```
+Because kube-dns crashed !!!  we need to try another scenario 
+ps . docker.elastic.co/elasticsearch/elasticsearch-oss:6.4.3
+
+
+```bash
+
+sudo -E minikube start --vm-driver=none   --memory 16384
+
+# minikube ssh                         _             _            
+            _         _ ( )           ( )           
+  ___ ___  (_)  ___  (_)| |/')  _   _ | |_      __  
+/' _ ` _ `\| |/' _ `\| || , <  ( ) ( )| '_`\  /'__`\
+| ( ) ( ) || || ( ) || || |\`\ | (_) || |_) )(  ___/
+(_) (_) (_)(_)(_) (_)(_)(_) (_)`\___/'(_,__/'`\____)
+
+
+$ curl 172.17.0.7:9200/_cluster/state/master_node,nodes/?pretty
+{
+  "cluster_name" : "docker-cluster",
+  "compressed_size_in_bytes" : 333,
+  "cluster_uuid" : "r6ads3rSRWOPQrko8oYT3w",
+  "master_node" : "LPmgwBLjTf6EWt1B63-v8w",
+  "nodes" : {
+    "Ddc_dqIsQJah5DthS40W0w" : {
+      "name" : "Ddc_dqI",
+      "ephemeral_id" : "pZlXc5fkTxyYhDXgkC8y8g",
+      "transport_address" : "172.17.0.6:9300",
+      "attributes" : { }
+    },
+    "LPmgwBLjTf6EWt1B63-v8w" : {
+      "name" : "LPmgwBL",
+      "ephemeral_id" : "dDS91MO7Sgm-XimJHvZCdw",
+      "transport_address" : "172.17.0.5:9300",
+      "attributes" : { }
+    },
+    "r9oG5BbyQl6f0K7t9dOq2A" : {
+      "name" : "r9oG5Bb",
+      "ephemeral_id" : "wub-ocCmS96nUhC1thG6dA",
+      "transport_address" : "172.17.0.7:9300",
+      "attributes" : { }
+    }
+  }
+}
+
+```
+
+
+
 ## Validating Zen Discovery
 
 Once all ES nodes have been discovered, most API operations are propagated from one ES node to another in a peer-to-peer manner. To test this, let's repeat what we did previously and add a document to one Elasticsearch node and test whether you can access this newly indexed document from a different Elasticsearch node.
