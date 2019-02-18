@@ -842,7 +842,7 @@ ps . docker.elastic.co/elasticsearch/elasticsearch-oss:6.4.3
 
 ```bash
 
-sudo -E minikube start --vm-driver=none   --memory 16384
+sudo -E minikube start --vm-driver=none   --cpus 6  --memory 16384
 
 # minikube ssh                         _             _            
             _         _ ( )           ( )           
