@@ -844,6 +844,15 @@ ps . docker.elastic.co/elasticsearch/elasticsearch-oss:6.4.3
 
 sudo -E minikube start    --cpus 6  --memory 16384
 
+$ kubectl  apply -f  service.yaml
+
+$ kubectl  apply -f stateful-set-1.yaml 
+
+$ kubectl exec -it elasticsearch-0 -- ping  elasticsearch-2.elasticsearch.default.svc.cluster.local
+PING elasticsearch-2.elasticsearch.default.svc.cluster.local (172.17.0.7) 56(84) bytes of data.
+64 bytes from elasticsearch-2.elasticsearch.default.svc.cluster.local (172.17.0.7): icmp_seq=1 ttl=64 time=0.031 ms
+64 bytes from elasticsearch-2.elasticsearch.default.svc.cluster.local (172.17.0.7): icmp_seq=2 ttl=64 time=0.062 ms
+64 bytes from elasticsearch-2.elasticsearch.default.svc.cluster.local (172.17.0.7): icmp_seq=3 ttl=64 time=0.053 ms
 # minikube ssh                         _             _            
             _         _ ( )           ( )           
   ___ ___  (_)  ___  (_)| |/')  _   _ | |_      __  
