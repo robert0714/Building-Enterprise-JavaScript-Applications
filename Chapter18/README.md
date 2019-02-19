@@ -842,7 +842,7 @@ ps . docker.elastic.co/elasticsearch/elasticsearch-oss:6.4.3
 
 ```bash
 
-sudo -E minikube start    --cpus 6  --memory 16384
+$ sudo -E minikube start    --cpus 6  --memory 16384
 
 $ kubectl  apply -f  service.yaml
 
