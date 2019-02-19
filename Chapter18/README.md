@@ -1476,3 +1476,13 @@ spec:
       storageClassName: do-block-storage
 
 ```
+Delete your existing Services, StatefulSets, and Pods and try deploying them from scratch:
+
+```bash
+
+$ kubectl apply -f ./manifests/elasticsearch/service.yaml
+service "elasticsearch" created
+$ kubectl apply -f ./manifests/elasticsearch/stateful-set.yaml
+statefulset.apps "elasticsearch" created
+
+```
