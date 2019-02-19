@@ -972,6 +972,507 @@ spec:
           value: "elasticsearch-0.elasticsearch.default.svc.cluster.local,elasticsearch-1.elasticsearch.default.svc.cluster.local,elasticsearch-2.elasticsearch.default.svc.cluster.local"
 
 
+```
 
+This configures our nodes in the same way as pssh , but with the added benefit of configuration-as-code, since it's now part of our stateful-set.yaml .
+
+## Running the Elasticsearch service
+
+With our stateful-set.yaml ready, it's time to deploy our Service and StatefulSet onto our remote cloud cluster.
+
+At the moment, our remote cluster is not running anything apart from the Kubernetes Master Components:
+
+```bash
+
+$ kubectl get all 
+
+NAME                    TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)             AGE 
+service/kubernetes      ClusterIP   10.96.0.1    <none>        443/TCP             79m
+ 
+```
+
+To deploy our Service and StatefulSet, we will use kubectl apply :
+
+```bash
+
+$ kubectl apply -f manifests/elasticsearch/service.yaml  
+
+service "elasticsearch" created
+
+$ kubectl apply -f manifests/elasticsearch/stateful-set.yaml  
+
+statefulset.apps "elasticsearch" created
+
+```
+
+Give it a minute or so, and run kubectl get all again. You should see that the Pods, StatefulSet, and our headless Service are running successfully!
+
+```bash
+
+$ kubectl get all
+NAME                  READY   STATUS    RESTARTS   AGE
+pod/busybox           1/1     Running   1          75m
+pod/elasticsearch-0   1/1     Running   0          71m
+pod/elasticsearch-1   1/1     Running   0          69m
+pod/elasticsearch-2   1/1     Running   0          68m
+
+NAME                    TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)             AGE
+service/elasticsearch   ClusterIP   None         <none>        9200/TCP,9300/TCP   71m
+service/kubernetes      ClusterIP   10.96.0.1    <none>        443/TCP             79m
+
+NAME                             READY   AGE
+statefulset.apps/elasticsearch   3/3     71m
+
+
+```
+
+##  Validating Zen Discovery on the remote cluster
+
+Let's validate that all three Elasticsearch nodes has been successfully added to the Elasticsearch cluster once more. We can do this by sending a GET request to /_cluster/state?pretty and checking the output.
+
+But since we want to keep the database service internal, we haven't exposed it to an external-reachable URL, so the only way to validate this is to SSH into one of the VPS and query Elasticsearch using its private IP.
+
+However, kubectl provides a more convenient alternative. kubectl has a port-forward command, which forwards requests going into a port on localhost to a port on one of the Pods. We can use this feature to send requests from our local machine to each Elasticsearch instance.
+
+Let's suppose that we have three Pods running Elasticsearch:
+
+```bash
+
+$ kubectl get pods
+NAME              READY   STATUS    RESTARTS   AGE 
+elasticsearch-0   1/1     Running   0          81m
+elasticsearch-1   1/1     Running   0          78m
+elasticsearch-2   1/1     Running   0          78m
+
+```
+
+We can set up port forward on elasticsearch-0 by running the following:
+
+```bash
+
+$ kubectl port-forward elasticsearch-0   9200:9200
+Forwarding from 127.0.0.1:9200 -> 9200
+Forwarding from [::1]:9200 -> 9200
+Handling connection for 9200
+
+```
+
+Now, on a separate terminal, send a GET request to http://localhost:9200/_cluster/state?pretty :
+
+```bash
+
+$ curl http://localhost:9200/_cluster/state?pretty
+{
+  "cluster_name" : "docker-cluster",
+  "compressed_size_in_bytes" : 331,
+  "cluster_uuid" : "64xYE0r9QT-Z1nXQq0MldQ",
+  "version" : 4,
+  "state_uuid" : "5cxQJ6XOQveyybkWiULQog",
+  "master_node" : "7Q-D26g6TeejotlpFOYAEQ",
+  "blocks" : { },
+  "nodes" : {
+    "7Q-D26g6TeejotlpFOYAEQ" : {
+      "name" : "7Q-D26g",
+      "ephemeral_id" : "B6VcTFcTSDqros2ZBx2MYA",
+      "transport_address" : "172.17.0.5:9300",
+      "attributes" : { }
+    },
+    "n-ULTyAVS0Gpj3QLgqLbqA" : {
+      "name" : "n-ULTyA",
+      "ephemeral_id" : "rzaVHQcTTSGcYMiJ-k2dRQ",
+      "transport_address" : "172.17.0.7:9300",
+      "attributes" : { }
+    },
+    "w5RXMfn9Q3K6JSAFD8rHaw" : {
+      "name" : "w5RXMfn",
+      "ephemeral_id" : "26023raiQNuo6qylr2BnuQ",
+      "transport_address" : "172.17.0.6:9300",
+      "attributes" : { }
+    }
+  },
+  "metadata" : {
+    "cluster_uuid" : "64xYE0r9QT-Z1nXQq0MldQ",
+    "templates" : { },
+    "indices" : { },
+    "index-graveyard" : {
+      "tombstones" : [ ]
+    }
+  },
+  "routing_table" : {
+    "indices" : { }
+  },
+  "routing_nodes" : {
+    "unassigned" : [ ],
+    "nodes" : {
+      "w5RXMfn9Q3K6JSAFD8rHaw" : [ ],
+      "7Q-D26g6TeejotlpFOYAEQ" : [ ],
+      "n-ULTyAVS0Gpj3QLgqLbqA" : [ ]
+    }
+  },
+  "restore" : {
+    "snapshots" : [ ]
+  },
+  "snapshots" : {
+    "snapshots" : [ ]
+  },
+  "snapshot_deletions" : {
+    "snapshot_deletions" : [ ]
+  }
+}
+
+
+```
+
+As you can see, the node field contains three objects, representing each of our Elasticsearch instances. They are all part of the cluster, with a cluster_uuid value of ZF1t_X_XT0q5SPANvzE4Nw . Try port forwarding to the other Pods, and confirm
+that the cluster_uuid for those nodes are the same.
+
+If everything worked, we have now successfully deployed the same Elasticsearch service on DigitalOcean!
+
+## Persisting data
+
+However, we're not finished yet! Right now, if all of our Elasticsearch containers fail,the data stored inside them would be lost.
+
+This is because containers are ephemeral, meaning that any file changes inside the container, be it addition or deletion, only persist for as long as the container persists; once the container is gone, the changes are gone.
+
+This is fine for stateless applications, but our Elasticsearch service's primary purpose is to hold state. Therefore, similar to how we persist data using Volumes in Docker, we need to do the same with Kubernetes.
+
+### Introducing Kubernetes Volumes
+
+Like Docker, Kubernetes has an API Object that's also called Volume, but there are several differences between the two.
+
+With both Docker and Kubernetes, the storage solution that backs a Volume can be a directory on the host machine, or it can be a part of a cloud solution like AWS.
+
+And for both Docker and Kubernetes, a Volume is an abstraction for a piece of storage that can be attached or mounted. The difference is which resource it is mounted to.
+
+With Docker Volumes, the storage is mounted on to a directory inside the container. Any changes made to the contents of this directory would be accessible by both the host machine and the container.
+
+With Kubernetes Volumes, the storage is mapped to a directory inside a Pod. Containers within the same Pod has access to the Pod's Volume. This allows containers inside the same Pod to share information easily.
+
+#### Defining Volumes
+
+Volumes are created by specifying information about the Volume in the .spec.volumes field inside a Pod manifest file. The following manifest snippet will create a Volume of type hostPath , using the parameters defined in the path and type properties.
+
+hostPath is the Volume type most similar to a Docker Volume, where the Volume exists as a directory from the host node's filesystem:
+
+```yaml
+
+apiVersion: v1
+kind: Pod
+spec:
+  ...
+  volumes:
+  - name: host-volume
+    hostPath:
+      path: /data
+      type: Directory
+
+```
+This Volume will now be available to all containers within the Pod. However, the Volume is not automatically mounted onto each container. This is done by design because not all containers may need to use the Volume; it allows the configuration to be explicit rather than implicit.
+
+To mount the Volume to a container, specify the volumeMounts option in the container's specification:
+
+```yaml
+
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+    - name: elasticsearch
+      image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.2.4
+      ports:
+        - containerPort: 9200
+        - containerPort: 9300
+      env:
+        - name: discovery.type
+          value: single-node
+      volumeMounts:
+        - mountPath: /usr/share/elasticsearch/data
+          name: host-volume
+...
+
+
+```
+ 
+The mountPath specifies the directory inside the container where the Volume should be mounted at.
+
+To run this Pod, you first need to create a /data directory on your host machine and change its ownership to having a UID and GID of 1000 :
+
+```bash
+
+$ sudo mkdir data
+$ sudo chown 1000:1000 /data
+
+```
+
+Now, when we run this Pod, you should be able to query it on <pod-ip>:9200 and see the content written to the /data directory:
+
+```bash
+$ tree /data
+data/
+└── nodes
+   └── 0
+     ├── node.lock
+     └── _state
+        ├── global-0.st
+        └── node-0.st
+3 directories, 3 files
+
+```
+#### Problems with manually-managed Volumes
+
+While you can use Volumes to persists data for individual Pods, this won't work for our StatefulSet. This is because each of the replica Elasticsearch nodes will try to write to the same files at the same time; only one will succeed, the others will fail. If you tried, the following hanged state is what you'll encounter:
+
+```bash
+
+$ kubectl logs elasticsearch-1
+[WARN ][o.e.b.ElasticsearchUncaughtExceptionHandler] [] uncaughtexception in thread [main]
+org.elasticsearch.bootstrap.StartupException:
+java.lang.IllegalStateException: failed to obtain node locks, tried[[/usr/share/elasticsearch/data/docker-cluster]] with lock id [0];
+maybe these locations are not writable or multiple nodes were started without increasing [node.max_local_storage_nodes] (was [1])?
+
+```
+
+Basically, before an Elasticsearch instance is writing to the database files, it creates a node.lock file. Before other instances try to write to the same files, it will detect this node.lock file and abort.
+
+Apart from this issue, attaching Volumes directly to Pods is not good for another reason—Volumes persist data at the Pod-level, but Pods can get rescheduled to other Nodes. When this happens, the "old" Pod is destroyed, along with its associated 
+Volume, and a new Pod is deployed on a different Node with a blank Volume.
+
+Finally, scaling storage this way is also difficult—if the Pod requires more storage,you'll have to destroy the Pod (so it doesn't write anything to the Volume, create a new Volume, copy contents from the old Volume to the new, and then restart the Pod).
+
+### Introducing PersistentVolume (PV)
+
+To tackle these issues, Kubernetes provides the PersistentVolume (PV) object. PersistentVolume is a variation of the Volume Object, but the storage capability is associated with the entire cluster, and not with any particular Pod.
+
+### Consuming PVs with PersistentVolumeClaim (PVC)
+
+When an administrator wants a Pod to use storage provided by a PV, the administrator would create a new PersistentVolumeClaim (PVC) object and assign that PVC Object to the Pod. A PVC object is simply a request for a suitable PV to be bound to the PVC (and thus the Pod).
+
+After the PVC has been registered with the Master Control Plane, the Master Control Plane would search for a PV that satisfies the criteria laid out in the PVC, and bind the two together. For instance, if the PVC requests a PV with at least 5 GB of storage space, the Master Control Plane will only bind that PVC with PVs which have at least 5 GB of space.
+
+After the PVC has been bound to the PV, the Pod would be able to read and write to the storage media backing the PV.
+
+A PVC-to-PV binding is a one-to-one mapping; this means when a Pod is rescheduled, the same PV would be associated with the Pod.
+
+### Deleting a PersistentVolumeClaim
+When a Pod no longer needs to use the PersistentVolume, the PVC can simply be deleted. When this happens, what happens to the data stored inside the storage media depends on the PersistentVolume's Reclaim Policy. 
+
+If the Reclaim Policy is set to:
+
+* Retain, the PV is retained—the PVC is simply released/unbounded from the PV. The data in the storage media is retained.
+
+* Delete, it deletes both the PV and the data in the storage media.
+
+### Deleting a PersistentVolume
+When you no longer need a PV, you can delete it. But because the actually data is stored externally, the data will remain in the storage media.
+
+### Problems with manually provisioning PersistentVolume
+
+Whil a PersistentVolume decouples storage from individual Pods, it still lacks the automation that we've come to expect from Kubernetes, because the cluster administrator (you) must manually interact with their cloud provider to provision new storage spaces, and then create a PersistentVolume to represent them in Kubernetes:
+
+
+Furthermore, a PVC to PV binding is a one-to-one mapping; this means we must take care when creating our PVs. For instance, let's suppose we have 2 PVCs—one requesting 10 GB and the other 40 GB. If we register two PVs, each of size 25GB, then only the 10 GB PVC would succeed, even though there is enough storage space for both PVCs.
+
+### Dynamic volume provisioning with StorageClass
+
+To resolve these issues, Kubernetes provides another API Object called StorageClass . With StorageClass , Kubernetes is able to interact with the cloud provider directly. This allows Kubernetes to provision new storage volumes, and create PersistentVolumes automatically.
+
+Basically, a PersistentVolume is a representation of a piece of storage, whereas StorageClass is a specification of how to create PersistentVolumes dynamically. StorageClass abstracts the manual processes into a set of fields you can specify
+inside a manifest file.
+
+### Defining a StorageClass
+For example, if you want to create a StorageClass that will create Amazon EBS Volume of type General Purpose SSD ( gp2 ), you'd define a StorageClass manifest like so:
+
+```yaml
+
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: standard
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+reclaimPolicy: Retain
+
+```
+
+Here's what each field means (required fields are marked with an asterik ( * ):
+
+#### Using the csi-digitalocean provisioner
+DigitalOcean provides its own provisioner called CSI-DigitalOcean ( https:/​ / ​ github.com/​ digitalocean/​ csi-​ digitalocean ). To use it, simply follow the instructions in the README.md file. Essentially, you have go to the DigitalOcean dashboard, generate a token, use that to generate a Secret Kubernetes Object, and then deploy the
+StorageClass manifest file found at https:/​ / ​ raw.​ githubusercontent.​ com/digitalocean/​ csi-​ digitalocean/​ master/​ deploy/​ kubernetes/​ releases/​ csi-digitalocean-​ latest-​ stable.​ yaml .
+
+However, because we are using the DigitalOcean Kubernetes platform, our Secret and the csi-digitaloceanstorage class is already configured for us, so we don't actually need to do anything! You can check both the Secret and StorageClass
+using kubectl get :
+
+```bash
+
+$ kubectl get secret
+NAME TYPE DATA AGE
+default-token-2r8zr kubernetes.io/service-account-token 3 2h
+$ kubectl get storageclass
+NAME PROVISIONER AGE
+do-block-storage (default) com.digitalocean.csi.dobs 2h
+
+```
+
+Note down the name of the StorageClass ( do-block-storage here).
+
+### Provisioning PersistentVolume to StatefulSet
+We now need to update our stateful-set.yaml file to use the do-block-storage StorageClass. Under the StatefulSet spec ( .spec ), add a new field called volumeClaimTemplates with the following value:
+
+```yaml
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: ...
+spec:
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 2Gi
+      storageClassName: do-block-storage
+
+```
+
+This will use the do-block-storage class to dynamically provision 2 GB PersistentVolumeClaim Objects for any containers which mount it. The PVC is given the name data as a reference.
+
+To mount it to a container, add a volumeMounts property under the spec property of the container spec:
+
+
+```yaml
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: ...
+spec:
+  volumeClaimTemplates:
+  - metadata: ...
+    spec:
+      ...
+      template:
+        ...
+        spec:
+          initContainers:...
+          containers: ...
+            volumeMounts:
+              - name: data
+                mountPath: /usr/share/elasticsearch/data
+    volumeClaimTemplates: ...
+
+```
+Elasticsearch writes its data to /usr/share/elasticsearch/data , so that's the data we want to persist.
+
+### Configuring permissions on a bind-mounted directory
+
+By default, Elasticsearch runs inside the Docker container as the user elasticsearch , with both a UID and GID of 1000 . Therefore, we must ensure that the data directory ( /usr/share/elasticsearch/data ) and all its content is going to be owned by this the elasticsearch user so that Elasticsearch can write to them.
+
+When Kubernetes bind-mounted the PersistentVolume to our /usr/share/elasticsearch/data , it was done using the root user. This means that the /usr/share/elasticsearch/data directory is no longer owned by the elasticsearch user.
+
+Therefore, to complete our deployment of Elasticsearch, we need to use an Init Container to fix our permissions. This can be done by running chown -R 1000:1000 /usr/share/elasticsearch/data on the node as root . 
+
+Add the following entry to the initContainers array inside stateful-set.yaml :
+
+```yaml
+
+- name: fix-volume-permission
+  image: busybox
+  command:
+  - sh
+  - -c
+  - chown -R 1000:1000 /usr/share/elasticsearch/data
+  securityContext:
+    privileged: true
+  volumeMounts:
+  - name: data
+    mountPath: /usr/share/elasticsearch/data
+
+```
+
+This basically mounts the PersistentVolume and updates its owner before the app Container starts initializing, so that the correct permissions would already be set when the app container executes. To summarize, your final elasticsearch/service.yaml should look like this:
+
+```yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  labels:
+app: elasticsearch
+spec:
+  selector:
+    app: elasticsearch
+  clusterIP: None
+  ports:
+  - port: 9200
+    name: rest
+  - port: 9300
+    name: transport
+    
+```
+
+And your final elasticsearch/stateful-set.yaml should look like this:
+
+```yaml
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  replicas: 3
+  serviceName: elasticsearch
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      name: elasticsearch
+      labels:
+        app: elasticsearch
+    spec:
+      initContainers:
+      - name: increase-max-map-count
+        image: busybox
+        command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        securityContext:
+          privileged: true
+      - name: increase-file-descriptor-limit
+        image: busybox
+        command:
+        - sh
+        - -c
+        - ulimit -n 65536
+        securityContext:
+          privileged: true
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.4.3
+        ports:
+        - containerPort: 9200
+        - containerPort: 9300
+        env:
+        - name: discovery.zen.ping.unicast.hosts
+          value: "elasticsearch-0.elasticsearch.default.svc.cluster.local,elasticsearch-1.elasticsearch.default.svc.cluster.local,elasticsearch-2.elasticsearch.default.svc.cluster.local"
+      volumeMounts:
+        - name: data
+          mountPath: /usr/share/elasticsearch/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 2Gi
+      storageClassName: do-block-storage
 
 ```
