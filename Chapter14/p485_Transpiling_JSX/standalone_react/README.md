@@ -24,7 +24,7 @@ In your ***package.json*** you'll want to add the following (at bare minimum):
   "main": "app.js",
   "scripts": {
     "start": "open http://localhost:8888/ && python3 -m http.server 8888",
-    "build": "npx babel app.js --out-file app.min.js --presets minify --watch"
+    "build": "npx babel   app.js --out-file app.min.js --presets minify --watch"
   },
   "author": "",
   "license": "ISC",
@@ -95,7 +95,7 @@ In ***index.html*** add:
     <div class="cfe-app" data-userid='1'></div>
 
     <!-- Load React. -->
-    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@7.7.4/babel.min.js"></script>
     <script src="https://unpkg.com/react@16/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js" crossorigin></script>
 
@@ -149,6 +149,11 @@ containers.forEach(domContainer => {
 
 ### Build and Test
 
+```bash
+cd /path/to/your/local/dev/standalone_react
+npm install
+```
+
 Our build command will create the ***app.min.js*** file for us (as referenced in ***index.html***) and it will watch for any changes by default. You'll run two commands at once both ***npm run build*** and ***npm run start*** to both develop and view our app.
 
 ```bash
@@ -162,3 +167,6 @@ This will also watch for changes. Open another terminal window and run:
 cd /path/to/your/local/dev/standalone_react
 npm run start
 ```
+
+## Source Code
+https://github.com/codingforentrepreneurs/Create-a-Standalone-React-App
