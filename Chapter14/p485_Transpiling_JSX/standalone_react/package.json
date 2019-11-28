@@ -1,0 +1,21 @@
+{
+  "name": "test",
+  "version": "0.0.1",
+  "main": "app.js",
+  "scripts": {
+    "start": "open http://localhost:8888/ && python3 -m http.server 8888",
+    "build": "npx babel app.js --out-file app.min.js --presets minify --watch"
+  },
+  "author": "",
+  "license": "ISC",
+  "keywords": [],
+  "description": "",
+  "devDependencies": {
+    "@babel/cli": "^7.7.4",
+    "@babel/core": "^7.7.4",
+    "@babel/plugin-proposal-class-properties": "^7.7.4",
+    "@babel/plugin-transform-react-jsx": "^7.7.4",
+    "babel-minify": "^0.5.1",
+    "babel-preset-minify": "^0.5.1"
+  }
+}
